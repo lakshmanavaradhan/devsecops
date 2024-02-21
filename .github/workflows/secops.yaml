@@ -7,11 +7,14 @@ on:
 jobs:
   secrets-scan:
     runs-on: ubuntu-latest
-    
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          ref: ${{ github.head_ref }}
-      - name: trufflehog-actions-scan
-        uses: edplato/trufflehog-actions-scan@master
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install Trufflehog
+        run: |
+          pip install trufflehog
+
+      - name: Run Trufflehog
+        run: |
+          trufflehog . --json
