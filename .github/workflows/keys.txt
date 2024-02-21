@@ -1,0 +1,4 @@
+API_KEY = "abcdef123456"
+PASSWORD = "sgggrvr%532@2"
+AWS_SECRET_KEY = "awdvee#$3224"
+DATABASE_PASSWORD = "ascsdvvrerr343t2xwe#$@"
