@@ -7,14 +7,16 @@ on:
 jobs:
   secrets-scan:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Install TruffleHog
+      - name: Install gitleaks
         run: |
-          pip install trufflehog
+          curl -sSfL https://install.goreleaser.com/github.com/zricethezav/gitleaks.sh | sh -s -- -b $HOME/bin v7.4.0
+          export PATH=$PATH:$HOME/bin
 
-      - name: Run TruffleHog
-        run: trufflehog . --json 
+      - name: Run gitleaks
+        run: |
+          gitleaks --verbose --redact
