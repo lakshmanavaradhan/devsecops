@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - secops
+  pull_request:
+
 jobs:
   secrets-scan:
     runs-on: ubuntu-latest
@@ -18,4 +20,9 @@ jobs:
 
       - name: Run detect-secrets
         run: |
-          detect-secrets scan
+          result=$(detect-secrets scan)
+          echo "$result"
+          if [[ "$result" == *"hashed_secret"* ]]; then
+            echo "Secret exposed. Exiting the build."
+            exit 1
+          fi
