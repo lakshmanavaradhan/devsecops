@@ -12,11 +12,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Install git-secrets
+      - name: Install detect-secrets
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y git-secrets
+          pip install detect-secrets
 
-      - name: Run git-secrets
+      - name: Run detect-secrets
         run: |
-          sudo git-secrets --scan
+          detect-secrets scan
