@@ -7,14 +7,16 @@ on:
 jobs:
   secrets-scan:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Install Trufflehog
+      - name: Install git-secrets
         run: |
-          pip install trufflehog
+          curl -sSL https://raw.githubusercontent.com/git-secrets/git-secrets/master/install.sh | sudo bash
+          sudo git-secrets --register-aws --register-gcp
 
-      - name: Run Trufflehog
+      - name: Run git-secrets
         run: |
-          trufflehog . --json
+          sudo git-secrets --scan
