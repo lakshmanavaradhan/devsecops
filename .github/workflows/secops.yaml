@@ -14,7 +14,8 @@ jobs:
 
       - name: Install git-secrets
         run: |
-          curl -sSL https://raw.githubusercontent.com/git-secrets/git-secrets/master/install.sh | sudo bash
+          sudo apt-get update -y
+          sudo apt-get install -y git-secrets
           sudo git-secrets --register-aws --register-gcp
 
       - name: Run git-secrets
