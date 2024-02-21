@@ -1,0 +1,20 @@
+name: SecOps
+
+on:
+  push:
+    branches:
+      - secops
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install TruffleHog
+        run: |
+          pip install trufflehog
+
+      - name: Run TruffleHog
+        run: trufflehog
