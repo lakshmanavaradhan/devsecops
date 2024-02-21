@@ -17,4 +17,4 @@ jobs:
           pip install trufflehog
 
       - name: Run TruffleHog
-        run: trufflehog $pwd
+        run: trufflehog . --json > trufflehog.json
