@@ -14,8 +14,7 @@ jobs:
 
       - name: Install gitleaks
         run: |
-          curl -sSfL https://install.goreleaser.com/github.com/zricethezav/gitleaks.sh | sh -s -- -b $HOME/bin v7.4.0
-          export PATH=$PATH:$HOME/bin
+           pip install gitleaks
 
       - name: Run gitleaks
         run: |
