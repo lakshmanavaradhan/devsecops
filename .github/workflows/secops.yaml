@@ -50,6 +50,15 @@ jobs:
           echo ${{ needs.Docker_build_scan_k8scan_DAST.image-tag }}
           docker push readlg/testapp:2.0.1
 
+      - name: Scan Kubernetes Manifests
+        uses: kubescape/github-action@main
+        continue-on-error: true
+        with:
+          files: "./k8-spec.yaml"
+          format: json
+          outputFile: k8-scan-results.json
+
+
       - name: Install kubescape
         run: curl -s https://raw.githubusercontent.com/armosec/kubescape/master/install.sh | /bin/bash
 
