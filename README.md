@@ -6,4 +6,4 @@
    ```tool - detect-secrets | for production usecase trufflehog best which has addition polciy features!!```
 2. CI_CD ->  to build docker image, scan docker image and k8 spec file
    ```trivity, docker, kubescanner```
-3. IaC -> to setup infra in AWS using Teraform and  scan tempalte for best practies and figure out misconfirgurations
+3. IaC -> to setup infra in AWS using Teraform and  scan tempalte for best practies and figure out misconfirgurations ```tflint, checkov```
