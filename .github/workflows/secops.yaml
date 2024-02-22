@@ -4,39 +4,56 @@ on:
   push:
     branches:
       - secops
+      - cicd
   pull_request:
 
 jobs:
   Docker_build_scan_k8scan_DAST:
     runs-on: ubuntu-latest
+
+    outputs:
+      id: image-tag
+      value: ${{ steps.image-tag.outputs.tag }}
+
     steps:
       - name: Check Out Code
         uses: actions/checkout@v3
-
-      - name: Build hyper app container
-        run: |
-          tag=$(grep -Eo '"version": "([^"]*)"' package.json | awk -F'"' '{print $4}')
-          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
-          docker build -t readlg/testapp:$tag .
           
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build app container
+        id: image-tag
+        run: |
+          #echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
+          image_tag=$(grep -Eo '"version": "([^"]*)"' ip_reverse/package.json | awk -F'"' '{print $4}')
+          docker build -t readlg/testapp:2.0.1 .
+          tag=124
+          echo "::set-output name=tag::hello"
+
       - name: Scan for Docker image vulnerabilities
         id: scan
         uses: crazy-max/ghaction-container-scan@v3
           #comment continue on error for prod usecase
         continue-on-error: true
         with:
-          image: readlg/testapp:$tag
+          image: readlg/testapp:2.0.1
           severity_threshold: HIGH
           annotations: true  
           #uncomment timeout if scan fails because of db update
           #timeout: 10
       - name: push image to registry
         run: |
-          docker push readlg/testapp:$tag
+          echo ${{ needs.Docker_build_scan_k8scan_DAST.image-tag }}
+          docker push readlg/testapp:2.0.1
 
       - name: Scan Kubernetes Manifests
         uses: kubescape/github-action@main
         continue-on-error: true
         with:
+          manifest-path: .
           format: json
           outputFile: k8-scan-results.json
