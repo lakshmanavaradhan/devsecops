@@ -3,17 +3,35 @@ name: SecOps
 on:
   push:
     branches:
-      - secops
-      - cicd
+      - main
   pull_request:
 
 jobs:
-  Docker_build_scan_k8scan_DAST:
+## this has to run on very push and PR
+### to check secret creds is not exposed in scm
+  secrets-scan:
     runs-on: ubuntu-latest
 
-    outputs:
-      id: image-tag
-      value: ${{ steps.image-tag.outputs.tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install detect-secrets
+        run: |
+          pip install detect-secrets
+
+      - name: Run detect-secrets
+        run: |
+          result=$(detect-secrets scan)
+          echo "$result"
+          if [[ "$result" == *"hashed_secret"* ]]; then
+            echo "Secret exposed. Exiting the build."
+            exit 1
+          fi
+
+#implemet docker_build and scans for image k8 
+  Docker_build_scan_k8scan:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check Out Code
@@ -28,11 +46,10 @@ jobs:
       - name: Build app container
         id: image-tag
         run: |
-          #echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
+          #to find tag on cicd
           image_tag=$(grep -Eo '"version": "([^"]*)"' ip_reverse/package.json | awk -F'"' '{print $4}')
-          docker build -t readlg/testapp:2.0.1 .
-          tag=124
-          echo "::set-output name=tag::hello"
+          cp k8-spec.yaml spec.yaml
+          docker build -t readlg/testapp:$image_tag .
 
       - name: Scan for Docker image vulnerabilities
         id: scan
@@ -45,27 +62,90 @@ jobs:
           annotations: true  
           #uncomment timeout if scan fails because of db update
           #timeout: 10
+
       - name: push image to registry
         run: |
-          echo ${{ needs.Docker_build_scan_k8scan_DAST.image-tag }}
           docker push readlg/testapp:2.0.1
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      - name: Scan Kubernetes Manifests
+        uses: kubescape/github-action@main
+        continue-on-error: true
         with:
-          go-version: '1.17'
+          format: json
+          outputFile: k8-scan-results.json
+          frameworks: |
+            mitre
 
-      - name: Install Kube-score
+  IaC:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET }}
+      DOCKER_READ: ${{ secrets.DOCKER_READ }}
+      TF_VARFILE: ${{ secrets.TF_VARFILE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESSKEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+          aws-region: us-east-1
+
+      - name: Store Secret in AWS Secrets Manager
         run: |
-         go install github.com/zegl/kube-score@latest
+          set -x
+          sed -i "s/docker_secert/${DOCKER_READ}/g" k8-spec.yaml  
+          #cat k8-spec.yaml
+          bucket_name=lg-app-tfstate-5ec24429
+          aws --version 
+          aws s3api create-bucket --bucket "$bucket_name" --region us-east-1 2> /dev/null
+          if [ $? -ne 0 ]; then
+            aws s3api create-bucket --bucket "$bucket_name" --region us-east-1
+            echo "Bucket '$bucket_name' created successfully."
+          else
+             echo "Bucket '$bucket_name' already exists."
+          fi
+        
+      - name: Set up Python
+        uses: actions/setup-python@v2
 
-      - name: Run Kube-score
-        run: kube-score score .
+      - name: get_teraform_varaibles
+        run: |
+          echo "add needful variables"
+          env
+          python3 get_variable.py
+          #cat terraform.tfvars
 
-      - name: Install kubescape
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Install TFLint
+        #comment continue on error for prod usecase
+        continue-on-error: true
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint
+
+      - name: Install Checkov
+        run: |
+          pip install checkov
+
+      - name: Run Checkov
+        #comment continue on error for prod usecase
+        continue-on-error: true
+        run: checkov -d .
+
+      - name: Terraform exec
         run: | 
-          curl -sSLO https://github.com/armosec/kubescape/releases/latest/download/kubescape 
-          pwd
+          set -x
           ls -lrt
-          chmod +x kubescape 
-          ./kubescape scan . --format json --output output.json
+          terraform init
+          #terraform destroy -auto-approve
+          terraform plan -out=app
+          terraform apply -auto-approve app
+
+##placeholder for export reports

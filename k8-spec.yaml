@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
       - name: simple-node-app
-        image: readlg/testapp:2.0.0
+        image: readlg/testapp:2.0.1
         ports:
         - containerPort: 3000
       imagePullSecrets:

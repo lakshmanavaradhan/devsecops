@@ -1,6 +1,6 @@
 {
   "name": "ip_reverse",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "print publicIP in reverse",
   "main": "index.js",
   "scripts": {
