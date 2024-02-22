@@ -51,7 +51,7 @@ jobs:
           docker push readlg/testapp:2.0.1
 
       - name: Scan Kubernetes Manifests
-        uses: kubescape/github-action@main
+        uses: aquasecurity/kubescape-action@main
         continue-on-error: true
         with:
           manifest-path: .
