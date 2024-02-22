@@ -54,13 +54,13 @@ jobs:
         uses: kubescape/github-action@main
         continue-on-error: true
         with:
-          add-paths: |
-             *.yaml
           format: json
           outputFile: k8-scan-results.json
 
 
       - name: Install kubescape
         run: | 
-          curl -s https://raw.githubusercontent.com/armosec/kubescape/master/install.sh | /bin/bash
+          curl -sSLO https://github.com/armosec/kubescape/releases/latest/download/kubescape && \
+          chmod +x kubescape && \
+          sudo mv kubescape /usr/local/bin/
           kubescape scan . --format json --output output.json
