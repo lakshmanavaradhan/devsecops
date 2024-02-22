@@ -1,0 +1,151 @@
+name: SecOps
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+## this has to run on very push and PR
+### to check secret creds is not exposed in scm
+  secrets-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install detect-secrets
+        run: |
+          pip install detect-secrets
+
+      - name: Run detect-secrets
+        run: |
+          result=$(detect-secrets scan)
+          echo "$result"
+          if [[ "$result" == *"hashed_secret"* ]]; then
+            echo "Secret exposed. Exiting the build."
+            exit 1
+          fi
+
+#implemet docker_build and scans for image k8 
+  Docker_build_scan_k8scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v3
+          
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build app container
+        id: image-tag
+        run: |
+          #to find tag on cicd
+          image_tag=$(grep -Eo '"version": "([^"]*)"' ip_reverse/package.json | awk -F'"' '{print $4}')
+          cp k8-spec.yaml spec.yaml
+          docker build -t readlg/testapp:$image_tag .
+
+      - name: Scan for Docker image vulnerabilities
+        id: scan
+        uses: crazy-max/ghaction-container-scan@v3
+          #comment continue on error for prod usecase
+        continue-on-error: true
+        with:
+          image: readlg/testapp:2.0.1
+          severity_threshold: HIGH
+          annotations: true  
+          #uncomment timeout if scan fails because of db update
+          #timeout: 10
+
+      - name: push image to registry
+        run: |
+          docker push readlg/testapp:2.0.1
+
+      - name: Scan Kubernetes Manifests
+        uses: kubescape/github-action@main
+        continue-on-error: true
+        with:
+          format: json
+          outputFile: k8-scan-results.json
+          frameworks: |
+            mitre
+
+  IaC:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET }}
+      DOCKER_READ: ${{ secrets.DOCKER_READ }}
+      TF_VARFILE: ${{ secrets.TF_VARFILE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESSKEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+          aws-region: us-east-1
+
+      - name: Store Secret in AWS Secrets Manager
+        run: |
+          set -x
+          sed -i "s/docker_secert/${DOCKER_READ}/g" k8-spec.yaml  
+          #cat k8-spec.yaml
+          bucket_name=lg-app-tfstate-5ec24429
+          aws --version 
+          aws s3api create-bucket --bucket "$bucket_name" --region us-east-1 2> /dev/null
+          if [ $? -ne 0 ]; then
+            aws s3api create-bucket --bucket "$bucket_name" --region us-east-1
+            echo "Bucket '$bucket_name' created successfully."
+          else
+             echo "Bucket '$bucket_name' already exists."
+          fi
+        
+      - name: Set up Python
+        uses: actions/setup-python@v2
+
+      - name: get_teraform_varaibles
+        run: |
+          echo "add needful variables"
+          env
+          python3 get_variable.py
+          #cat terraform.tfvars
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Install TFLint
+        #comment continue on error for prod usecase
+        continue-on-error: true
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint
+
+      - name: Install Checkov
+        run: |
+          pip install checkov
+
+      - name: Run Checkov
+        #comment continue on error for prod usecase
+        continue-on-error: true
+        run: checkov -d .
+
+      - name: Terraform exec
+        run: | 
+          set -x
+          ls -lrt
+          terraform init
+          #terraform destroy -auto-approve
+          terraform plan -out=app
+          terraform apply -auto-approve app
+
+##placeholder for export reports
