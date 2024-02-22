@@ -8,4 +8,7 @@
    ```trivity, docker, kubescanner```
 3. IaC -> to setup infra in AWS using Teraform and  scan tempalte for best practies and figure out misconfirgurations ```tflint, checkov```
 
+Once you run the pipeline you can IP address details  under IAC -> Terraform exec stage
+It is a http site, url as follows http://<IP_ADDR>/
+
 FOR APPSEC ( SAST,DAST,SCA,THREAT_MODELING ) kindly ref - https://github.com/lakshmanavaradhan/hyperswitch-react-node
