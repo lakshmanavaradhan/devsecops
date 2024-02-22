@@ -60,7 +60,9 @@ jobs:
 
       - name: Install kubescape
         run: | 
-          curl -sSLO https://github.com/armosec/kubescape/releases/latest/download/kubescape && \
-          chmod +x kubescape && \
+          curl -sSLO https://github.com/armosec/kubescape/releases/latest/download/kubescape 
+          pwd
+          ls -lrt
+          chmod +x kubescape 
           sudo mv kubescape /usr/local/bin/
           kubescape scan . --format json --output output.json
